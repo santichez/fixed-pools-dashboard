@@ -12,7 +12,7 @@ A real-time dashboard for viewing Fixed Rate Markets data on Optimism. The dashb
 - Detailed pool information with maturity dates
 
 ## Live Demo
-Visit the dashboard at: [GitHub Pages URL will be here]
+Visit the dashboard at: https://santichez.github.io/fixed-pools-dashboard
 
 ## Local Development
 1. Clone this repository

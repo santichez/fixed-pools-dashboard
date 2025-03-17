@@ -186,7 +186,7 @@ function createMarketCard(market) {
             <h3 class="fixed-pool-title" style="margin: 0 0 16px 0; color: ${colors.text}; font-size: 16px; font-weight: 600;">
                 Maturity: ${formatMaturityDate(pool.maturity)}
                 <span style="color: ${colors.text}; opacity: 0.7; font-size: 14px; margin-left: 8px;">
-                    (${getTimeRemaining(pool.maturity)} seconds)
+                    (${getTimeRemaining(pool.maturity)} seconds left)
                 </span>
             </h3>
             <div style="display: grid; gap: 12px;">
