@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Rate Markets Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .markets-container {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .market-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .market-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .market-title {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .market-title img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+
+        .market-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .fixed-pools {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .fixed-pool {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .fixed-pool-title {
+            font-size: 1.1rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            grid-column: 1 / -1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            padding: 1rem;
+            background: #f8d7da;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.skypack.dev/ethers@5.7.2" type="module"></script>
+    <script src="app.js" type="module"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>EXA Markets Dashboard</h1>
+        <div id="markets" class="markets-container">
+            <div class="loading">Loading markets data...</div>
+        </div>
+    </div>
+</body>
+</html> 
