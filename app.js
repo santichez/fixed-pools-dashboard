@@ -35,6 +35,7 @@ const INTERVAL = 2419200; // 28 days in seconds
 // Cache for the ABI
 let cachedAbi = null;
 let provider = null;
+let currentMarketData = null; // Store current market data for CSV export
 
 // Format number from wei to decimal
 function formatFromWei(number, decimals = 18) {
@@ -335,6 +336,9 @@ async function renderMarkets() {
             throw new Error('No market data available');
         }
 
+        // Store current market data for CSV export
+        currentMarketData = data;
+
         marketsContainer.innerHTML = '';
         data.markets.forEach(market => {
             const marketCard = createMarketCard(market);
@@ -350,7 +354,86 @@ async function renderMarkets() {
     }
 }
 
-// Add some basic styles to the container
+// Function to escape CSV values
+function escapeCSV(value) {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+}
+
+// Function to generate CSV content
+function generateCsvContent(markets) {
+    // CSV Headers
+    const headers = [
+        'Market',
+        'Floating Deposits',
+        'Floating Borrows',
+        'Pool Maturity',
+        'Pool Deposits',
+        'Pool Borrows',
+        'Pool Pending Interests'
+    ].map(escapeCSV).join(',');
+
+    // Generate rows
+    const rows = markets.flatMap(market => {
+        // If no fixed pools, create one row with empty pool data
+        if (!market.fixedPools || market.fixedPools.length === 0) {
+            return [[
+                escapeCSV(market.symbol),
+                escapeCSV(market.floatingDeposits),
+                escapeCSV(market.floatingBorrows),
+                '',  // Pool Maturity
+                '',  // Pool Deposits
+                '',  // Pool Borrows
+                ''   // Pool Pending Interests
+            ].join(',')];
+        }
+
+        // Create a row for each pool
+        return market.fixedPools.map(pool => {
+            const maturityDate = formatMaturityDate(pool.maturity);
+            
+            const row = [
+                escapeCSV(market.symbol),
+                escapeCSV(market.floatingDeposits),
+                escapeCSV(market.floatingBorrows),
+                escapeCSV(maturityDate),
+                escapeCSV(pool.deposits),          // Already formatted
+                escapeCSV(pool.borrows),          // Already formatted
+                escapeCSV(pool.unassignedEarnings) // Already formatted
+            ];
+            return row.join(',');
+        });
+    });
+
+    return [headers, ...rows].join('\n');
+}
+
+// Function to download CSV
+function downloadCsv() {
+    if (!currentMarketData || !currentMarketData.markets) {
+        console.error('No market data available for CSV export');
+        return;
+    }
+
+    const csvContent = generateCsvContent(currentMarketData.markets);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `exa-markets-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Add event listener for CSV download
 document.addEventListener('DOMContentLoaded', () => {
     const marketsContainer = document.getElementById('markets');
     if (marketsContainer) {
@@ -365,6 +448,13 @@ document.addEventListener('DOMContentLoaded', () => {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         `;
     }
+
+    // Add click handler for CSV download button
+    const downloadButton = document.getElementById('downloadCsv');
+    if (downloadButton) {
+        downloadButton.addEventListener('click', downloadCsv);
+    }
+
     console.log('DOM loaded, starting to fetch market data...');
     renderMarkets();
 }); 
