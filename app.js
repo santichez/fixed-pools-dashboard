@@ -37,6 +37,46 @@ let cachedAbi = null;
 let provider = null;
 let currentMarketData = null; // Store current market data for CSV export
 
+// Global variables and helper functions for USD display
+let useUsd = false;
+let assetPrices = null;
+
+const COINGECKO_IDS = {
+    WETH: 'ethereum',
+    wstETH: 'wrapped-steth',
+    WBTC: 'wrapped-bitcoin',
+    USDC: 'usd-coin',
+    'USDC.e': 'usd-coin',
+    OP: 'optimism'
+};
+
+function formatUsd(value) {
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function displayValue(assetSymbol, rawValue, formattedValue) {
+    if (useUsd && assetPrices && assetPrices[assetSymbol] != null) {
+        return '$' + formatUsd(rawValue * assetPrices[assetSymbol]);
+    }
+    return formattedValue + ' ' + assetSymbol;
+}
+
+async function fetchAssetPrices() {
+    const uniqueIds = [...new Set(Object.values(COINGECKO_IDS))].join(',');
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${uniqueIds}&vs_currencies=usd`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch asset prices: ${response.statusText}`);
+    }
+    const data = await response.json();
+    let prices = {};
+    for (const symbol in COINGECKO_IDS) {
+        const id = COINGECKO_IDS[symbol];
+        prices[symbol] = data[id] ? data[id].usd : null;
+    }
+    return prices;
+}
+
 // Format number from wei to decimal
 function formatFromWei(number, decimals = 18) {
     if (!number) return '0';
@@ -116,6 +156,10 @@ function getMarketColors(symbol) {
 // Function to create a market card
 function createMarketCard(market) {
     const colors = getMarketColors(market.symbol);
+    // Define display values based on the current toggle mode (asset vs USD)
+    const floatingDepositsDisplay = displayValue(market.symbol, market.floatingDepositsRaw, market.floatingDeposits);
+    const floatingBorrowsDisplay = displayValue(market.symbol, market.floatingBorrowsRaw, market.floatingBorrows);
+
     const marketCard = document.createElement('div');
     marketCard.className = 'market-card';
     marketCard.style.cssText = `
@@ -140,10 +184,12 @@ function createMarketCard(market) {
         padding: 24px;
         border-radius: 12px 12px 0 0;
     `;
+    // Add asset price next to the market title
+    const price = (assetPrices && assetPrices[market.symbol]) ? "$" + formatUsd(assetPrices[market.symbol]) : "Price loading...";
     header.innerHTML = `
         <h2 class="market-title" style="margin: 0; color: ${colors.text}; font-size: 24px; font-weight: 600;">
             <img src="${ASSET_ICONS[market.symbol]}" alt="${market.symbol} icon" style="width: 24px; height: 24px; margin-right: 8px;">
-            ${market.name}
+            ${market.name} <span style="font-size: 0.8em; color: gray; margin-left: 8px;">(${price})</span>
         </h2>
     `;
 
@@ -158,11 +204,11 @@ function createMarketCard(market) {
     stats.innerHTML = `
         <div class="stat-item" style="background: ${colors.bg}; padding: 16px; border-radius: 8px; border: 1px solid ${colors.border};">
             <div class="stat-label" style="color: ${colors.text}; font-size: 14px; margin-bottom: 8px; font-weight: 500;">Floating Deposits</div>
-            <div class="stat-value" style="color: ${colors.text}; font-size: 16px; font-family: monospace;">${formatNumber(market.floatingDeposits, decimalsMap[market.symbol])} ${market.symbol}</div>
+            <div class="stat-value" style="color: ${colors.text}; font-size: 16px; font-family: monospace;">${floatingDepositsDisplay}</div>
         </div>
         <div class="stat-item" style="background: ${colors.bg}; padding: 16px; border-radius: 8px; border: 1px solid ${colors.border};">
             <div class="stat-label" style="color: ${colors.text}; font-size: 14px; margin-bottom: 8px; font-weight: 500;">Floating Borrows</div>
-            <div class="stat-value" style="color: ${colors.text}; font-size: 16px; font-family: monospace;">${formatNumber(market.floatingBorrows, decimalsMap[market.symbol])} ${market.symbol}</div>
+            <div class="stat-value" style="color: ${colors.text}; font-size: 16px; font-family: monospace;">${floatingBorrowsDisplay}</div>
         </div>
     `;
 
@@ -193,15 +239,15 @@ function createMarketCard(market) {
             <div style="display: grid; gap: 12px;">
                 <div class="stat-item">
                     <div class="stat-label" style="color: ${colors.text}; font-size: 14px; margin-bottom: 4px; opacity: 0.8;">Deposits</div>
-                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${formatNumber(pool.deposits, decimalsMap[market.symbol])} ${market.symbol}</div>
+                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${displayValue(market.symbol, pool.depositsRaw, pool.deposits)}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label" style="color: ${colors.text}; font-size: 14px; margin-bottom: 4px; opacity: 0.8;">Borrows</div>
-                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${formatNumber(pool.borrows, decimalsMap[market.symbol])} ${market.symbol}</div>
+                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${displayValue(market.symbol, pool.borrowsRaw, pool.borrows)}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label" style="color: ${colors.text}; font-size: 14px; margin-bottom: 4px; opacity: 0.8;">Pending Interests</div>
-                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${formatNumber(pool.unassignedEarnings, decimalsMap[market.symbol])} ${market.symbol}</div>
+                    <div class="stat-value" style="color: ${colors.text}; font-size: 14px; font-family: monospace;">${displayValue(market.symbol, pool.unassignedEarningsRaw, pool.unassignedEarnings)}</div>
                 </div>
             </div>
         `;
@@ -264,7 +310,7 @@ async function fetchMarketData() {
 
                 // Get floating assets and debt in parallel with retry
                 const [floatingAssets, totalFloatingBorrowAssets] = await Promise.all([
-                    retryRequest(() => contract.floatingAssets(), 5, 2000),
+                    retryRequest(() => contract.totalAssets(), 5, 2000),
                     retryRequest(() => contract.totalFloatingBorrowAssets(), 5, 2000)
                 ]);
 
@@ -284,6 +330,9 @@ async function fetchMarketData() {
                     .filter(p => p !== null)  // Only filter out failed requests
                     .map(({ maturity, pool }) => ({
                         maturity,
+                        depositsRaw: Number(ethers.utils.formatUnits(pool.supplied, decimals)),
+                        borrowsRaw: Number(ethers.utils.formatUnits(pool.borrowed, decimals)),
+                        unassignedEarningsRaw: Number(ethers.utils.formatUnits(pool.unassignedEarnings, decimals)),
                         deposits: formatFromWei(pool.supplied, decimals),
                         borrows: formatFromWei(pool.borrowed, decimals),
                         unassignedEarnings: formatFromWei(pool.unassignedEarnings, decimals)
@@ -293,6 +342,8 @@ async function fetchMarketData() {
                 return {
                     name: `${symbol} Market`,
                     symbol,
+                    floatingDepositsRaw: Number(ethers.utils.formatUnits(floatingAssets, decimals)),
+                    floatingBorrowsRaw: Number(ethers.utils.formatUnits(totalFloatingBorrowAssets, decimals)),
                     floatingDeposits: formatFromWei(floatingAssets, decimals),
                     floatingBorrows: formatFromWei(totalFloatingBorrowAssets, decimals),
                     fixedPools
@@ -377,33 +428,31 @@ function generateCsvContent(markets) {
         'Pool Pending Interests'
     ].map(escapeCSV).join(',');
 
-    // Generate rows
     const rows = markets.flatMap(market => {
-        // If no fixed pools, create one row with empty pool data
+        const marketFloatingDeposits = displayValue(market.symbol, market.floatingDepositsRaw, market.floatingDeposits);
+        const marketFloatingBorrows = displayValue(market.symbol, market.floatingBorrowsRaw, market.floatingBorrows);
+
         if (!market.fixedPools || market.fixedPools.length === 0) {
             return [[
                 escapeCSV(market.symbol),
-                escapeCSV(market.floatingDeposits),
-                escapeCSV(market.floatingBorrows),
-                '',  // Pool Maturity
-                '',  // Pool Deposits
-                '',  // Pool Borrows
-                ''   // Pool Pending Interests
+                escapeCSV(marketFloatingDeposits),
+                escapeCSV(marketFloatingBorrows),
+                '', '', '', ''
             ].join(',')];
         }
-
-        // Create a row for each pool
         return market.fixedPools.map(pool => {
             const maturityDate = formatMaturityDate(pool.maturity);
-            
+            const poolDeposits = displayValue(market.symbol, pool.depositsRaw, pool.deposits);
+            const poolBorrows = displayValue(market.symbol, pool.borrowsRaw, pool.borrows);
+            const poolPending = displayValue(market.symbol, pool.unassignedEarningsRaw, pool.unassignedEarnings);
             const row = [
                 escapeCSV(market.symbol),
-                escapeCSV(market.floatingDeposits),
-                escapeCSV(market.floatingBorrows),
+                escapeCSV(marketFloatingDeposits),
+                escapeCSV(marketFloatingBorrows),
                 escapeCSV(maturityDate),
-                escapeCSV(pool.deposits),          // Already formatted
-                escapeCSV(pool.borrows),          // Already formatted
-                escapeCSV(pool.unassignedEarnings) // Already formatted
+                escapeCSV(poolDeposits),
+                escapeCSV(poolBorrows),
+                escapeCSV(poolPending)
             ];
             return row.join(',');
         });
@@ -449,10 +498,32 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    // Pre-load asset prices for USD conversion
+    fetchAssetPrices().then(prices => {
+        assetPrices = prices;
+    }).catch(error => console.error("Error preloading asset prices:", error));
+
     // Add click handler for CSV download button
     const downloadButton = document.getElementById('downloadCsv');
     if (downloadButton) {
         downloadButton.addEventListener('click', downloadCsv);
+    }
+
+    // Toggle button for switching between asset and USD display
+    const toggleButton = document.getElementById('toggleDisplay');
+    if (toggleButton) {
+        toggleButton.addEventListener('click', async () => {
+            useUsd = !useUsd;
+            toggleButton.innerText = useUsd ? "Switch to Asset Denomination" : "Switch to USD Denomination";
+            if (useUsd && (!assetPrices)) {
+                try {
+                    assetPrices = await fetchAssetPrices();
+                } catch (error) {
+                    console.error("Error fetching asset prices:", error);
+                }
+            }
+            renderMarkets();
+        });
     }
 
     console.log('DOM loaded, starting to fetch market data...');
